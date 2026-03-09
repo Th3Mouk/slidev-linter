@@ -23,13 +23,31 @@ The linter works on the principle of "rules" that can be applied individually or
 
 ## 🚀 Installation
 
-### Option 1: Manual Installation
+### Option 1 (Recommended): Global CLI with `pipx`
+
+Install the linter directly from GitHub and use it in any Slidev project:
+
+```bash
+brew install pipx
+pipx ensurepath
+pipx install git+https://github.com/Th3Mouk/slidev-linter.git
+```
+
+Then run it anywhere with:
+
+```bash
+slidev-linter --list-rules
+slidev-linter --all --slides-dir ./slides
+slidev-linter --all --check --slides-dir ./slides
+```
+
+### Option 2: Manual Installation
 
 1. Place the `slidev_linter.py` file at the root of your Slidev project
 2. Make sure Python 3.6+ is installed on your system
 3. No external dependencies required
 
-### Option 2: Installation from GitHub
+### Option 3: Single-file Installation from GitHub
 
 You can install the linter directly from Th3Mouk's GitHub repository:
 
@@ -60,8 +78,8 @@ Add these scripts to your `package.json` for easy integration:
 
 ```json
 "scripts": {
-  "lint:slides": "python slidev_linter.py --all",
-  "lint:fix": "python slidev_linter.py --all --rule-set advanced_formatting"
+  "lint:slides": "slidev-linter --all --slides-dir ./slides",
+  "lint:slides:check": "slidev-linter --all --check --slides-dir ./slides"
 }
 ```
 
@@ -73,12 +91,24 @@ Add these scripts to your `package.json` for easy integration:
 # Process all files
 python slidev_linter.py --all
 
+# Check mode (detect issues without writing files)
+python slidev_linter.py --all --check
+
+# Process one chapter (e.g. all 20-*.md)
+python slidev_linter.py --chapter 20
+
+# Process a chapter range
+python slidev_linter.py --range 20-29
+
 # Process a specific file
 python slidev_linter.py --file 20-continuous-delivery.md
 
 # Process files matching a glob pattern
 python slidev_linter.py --pattern "2[0-9]-*.md"
 python slidev_linter.py --pattern "gitlab-*.md"
+
+# Use a custom slides directory
+python slidev_linter.py --all --slides-dir ./slides
 
 # List available rules
 python slidev_linter.py --list-rules
@@ -97,6 +127,9 @@ python slidev_linter.py --all --rule-set advanced_formatting
 # Apply specific rules
 python slidev_linter.py --all --rules remove_bold_from_titles add_spacing_after_titles
 ```
+
+If you don't pass `--rule-set` or `--rules`, the linter defaults to `advanced_formatting`.
+With `--check`, the command exits with status code `1` when at least one file needs changes.
 
 ## 📋 Available Rules
 
@@ -130,6 +163,14 @@ The linter includes several rules that can be applied individually or in sets:
 python slidev_linter.py --all --rule-set advanced_formatting
 ```
 
+### CI Check (Fail if Files Need Formatting)
+
+```bash
+python slidev_linter.py --all --check
+```
+
+The CI output contract uses versioned fixtures in `fixtures/` and expected formatted outputs in `fixtures/expected/`.
+
 ### Fix Only Transitions in Files Matching a Pattern
 
 ```bash
@@ -140,6 +181,20 @@ python slidev_linter.py --pattern "2[0-9]-*.md" --rules default_transition secti
 
 ```bash
 python slidev_linter.py --file 30-continuous-delivery.md --rules add_spacing_after_titles
+```
+
+## 🧪 Testing
+
+Use `pytest` as the canonical local test runner:
+
+```bash
+pytest
+```
+
+Generate a coverage report (terminal + XML):
+
+```bash
+pytest --cov=slidev_linter --cov-report=term-missing --cov-report=xml
 ```
 
 ## 🔧 Customization
