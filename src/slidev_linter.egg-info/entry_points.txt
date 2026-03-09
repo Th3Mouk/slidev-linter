@@ -1,0 +1,2 @@
+[console_scripts]
+slidev-linter = slidev_linter.cli:main

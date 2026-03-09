@@ -1,3 +1,19 @@
+Metadata-Version: 2.4
+Name: slidev-linter
+Version: 0.1.0
+Summary: Format Slidev markdown slides consistently with lint/check/list workflows.
+Author: Th3Mouk
+License: MIT
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Provides-Extra: dev
+Requires-Dist: mypy>=1.11.0; extra == "dev"
+Requires-Dist: pytest>=8.3.0; extra == "dev"
+Requires-Dist: pytest-cov>=5.0.0; extra == "dev"
+Requires-Dist: ruff>=0.6.0; extra == "dev"
+Dynamic: license-file
+
 # 🧹 Slidev Linter
 
 Format Slidev markdown slides consistently, automatically, and predictably.

@@ -1,12 +1,14 @@
 from __future__ import annotations
 
-from pathlib import Path
 import sys
+from collections.abc import Callable
+from pathlib import Path
 
 import pytest
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT_DIR))
+SRC_DIR = ROOT_DIR / "src"
+sys.path.insert(0, str(SRC_DIR))
 
 import slidev_linter as sl
 
@@ -24,7 +26,7 @@ def slides_dir(tmp_path: Path) -> Path:
 
 
 @pytest.fixture
-def write_slide(slides_dir: Path):
+def write_slide(slides_dir: Path) -> Callable[[str, str], Path]:
     def _write(name: str, body: str) -> Path:
         path = slides_dir / name
         path.write_text(body, encoding="utf-8")
@@ -34,7 +36,7 @@ def write_slide(slides_dir: Path):
 
 
 @pytest.fixture
-def read_slide(slides_dir: Path):
+def read_slide(slides_dir: Path) -> Callable[[str], str]:
     def _read(name: str) -> str:
         return (slides_dir / name).read_text(encoding="utf-8")
 

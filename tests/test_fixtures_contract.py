@@ -22,7 +22,7 @@ def test_fixtures_match_expected_after_lint(tmp_path: Path) -> None:
     for source in source_files:
         shutil.copy2(source, slides_dir / source.name)
 
-    exit_code = sl.main(["--all", "--slides-dir", str(slides_dir)])
+    exit_code = sl.main(["lint", "all", "--slides-dir", str(slides_dir)])
     assert exit_code == 0
 
     for expected in expected_files:
