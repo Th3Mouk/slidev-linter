@@ -71,11 +71,34 @@ def test_collect_files_to_process_for_pattern_selector(slides_dir: Path, write_s
     assert files == [str(slides_dir / "20-demo.md")]
 
 
+def test_collect_files_to_process_pattern_recursive_glob(slides_dir: Path) -> None:
+    nested = slides_dir / "a" / "b"
+    nested.mkdir(parents=True)
+    (slides_dir / "a" / "01-root.md").write_text("# Root\n", encoding="utf-8")
+    (nested / "02-deep.md").write_text("# Deep\n", encoding="utf-8")
+
+    files, error = sl.collect_files_to_process(_build_args(pattern="**/*.md"), str(slides_dir))
+
+    assert error is None
+    assert files == [str(slides_dir / "a" / "01-root.md"), str(nested / "02-deep.md")]
+
+
 def test_collect_files_to_process_for_chapter_selector(slides_dir: Path, write_slide) -> None:
     write_slide("20-demo.md", "# Demo\n")
     files, error = sl.collect_files_to_process(_build_args(chapter=20), str(slides_dir))
     assert error is None
     assert files == [str(slides_dir / "20-demo.md")]
+
+
+def test_collect_files_to_process_for_chapter_selector_recurses(slides_dir: Path) -> None:
+    nested = slides_dir / "php"
+    nested.mkdir(parents=True)
+    (nested / "01-intro.md").write_text("# Intro\n", encoding="utf-8")
+
+    files, error = sl.collect_files_to_process(_build_args(chapter=1), str(slides_dir))
+
+    assert error is None
+    assert files == [str(nested / "01-intro.md")]
 
 
 def test_collect_files_to_process_for_range_selector(slides_dir: Path, write_slide) -> None:
@@ -84,6 +107,34 @@ def test_collect_files_to_process_for_range_selector(slides_dir: Path, write_sli
     files, error = sl.collect_files_to_process(_build_args(range="20-21"), str(slides_dir))
     assert error is None
     assert files == [str(slides_dir / "20-demo.md"), str(slides_dir / "21-demo.md")]
+
+
+def test_collect_files_to_process_for_range_selector_recurses(slides_dir: Path) -> None:
+    php = slides_dir / "php"
+    symfony = slides_dir / "symfony"
+    php.mkdir(parents=True)
+    symfony.mkdir(parents=True)
+    (php / "01-intro.md").write_text("# Intro\n", encoding="utf-8")
+    (symfony / "02-bootstrapping.md").write_text("# Boot\n", encoding="utf-8")
+
+    files, error = sl.collect_files_to_process(_build_args(range="1-2"), str(slides_dir))
+
+    assert error is None
+    assert files == [str(php / "01-intro.md"), str(symfony / "02-bootstrapping.md")]
+
+
+def test_collect_files_to_process_for_all_selector_recurses(slides_dir: Path) -> None:
+    php = slides_dir / "php"
+    symfony = slides_dir / "symfony"
+    php.mkdir(parents=True)
+    symfony.mkdir(parents=True)
+    (php / "01-intro.md").write_text("# Intro\n", encoding="utf-8")
+    (symfony / "02-bootstrapping.md").write_text("# Boot\n", encoding="utf-8")
+
+    files, error = sl.collect_files_to_process(_build_args(all=True), str(slides_dir))
+
+    assert error is None
+    assert files == [str(php / "01-intro.md"), str(symfony / "02-bootstrapping.md")]
 
 
 @pytest.mark.parametrize(

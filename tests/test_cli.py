@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from io import StringIO
 from pathlib import Path
 from contextlib import redirect_stdout
@@ -123,6 +124,44 @@ def test_main_supports_chapter_and_range(slides_dir: Path, write_slide, read_sli
     assert range_code == 0
     assert "# Slide 20" in read_slide("20-foo.md")
     assert "# Slide 21" in read_slide("21-bar.md")
+
+
+def test_main_supports_recursive_selectors(slides_dir: Path) -> None:
+    php = slides_dir / "php"
+    symfony = slides_dir / "symfony"
+    php.mkdir(parents=True)
+    symfony.mkdir(parents=True)
+    (php / "01-intro.md").write_text("---\ntitle: Demo\n---\n# **PHP Intro**\n", encoding="utf-8")
+    (symfony / "02-bootstrap.md").write_text(
+        "---\ntitle: Demo\n---\n# **Symfony Bootstrap**\n",
+        encoding="utf-8",
+    )
+
+    all_code, _ = run_main(["--all", "--slides-dir", str(slides_dir)])
+    chapter_code, _ = run_main(["--chapter", "1", "--slides-dir", str(slides_dir)])
+    range_code, _ = run_main(["--range", "1-2", "--slides-dir", str(slides_dir)])
+    pattern_code, _ = run_main(["--pattern", "**/*.md", "--slides-dir", str(slides_dir), "--check"])
+
+    assert all_code == 0
+    assert chapter_code == 0
+    assert range_code == 0
+    assert pattern_code in (0, 1)
+
+
+def test_main_defaults_slides_dir_from_current_working_directory(tmp_path: Path) -> None:
+    slides_dir = tmp_path / "slides"
+    slides_dir.mkdir(parents=True)
+    (slides_dir / "20-demo.md").write_text("---\ntitle: Demo\n---\n# **Title**\n", encoding="utf-8")
+
+    original_cwd = Path.cwd()
+    try:
+        os.chdir(tmp_path)
+        code, _ = run_main(["--all"])
+    finally:
+        os.chdir(original_cwd)
+
+    assert code == 0
+    assert "# Title" in (slides_dir / "20-demo.md").read_text(encoding="utf-8")
 
 
 def test_main_check_mode_reports_issues_without_writing(slides_dir: Path, write_slide, read_slide) -> None:

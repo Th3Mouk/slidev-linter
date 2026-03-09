@@ -141,6 +141,24 @@ def test_clean_transitions_without_frontmatter_normalizes_first_separator() -> N
     assert sl.CleanTransitionsRule().apply(content).startswith("---\n# Slide\n")
 
 
+def test_clean_transitions_keeps_valid_slide_transition_metadata() -> None:
+    content = (
+        "---\n"
+        "title: Demo\n"
+        "---\n"
+        "# Intro\n"
+        "\n---\n"
+        "transition: fade\n"
+        "\n"
+        "# Slide 2\n"
+        "content\n"
+    )
+
+    result = sl.CleanTransitionsRule().apply(content)
+
+    assert "\n---\ntransition: fade\n\n# Slide 2\n" in result
+
+
 def test_add_spacing_after_titles_requires_frontmatter() -> None:
     content = "# Intro\nBody\n"
     assert sl.AddSpacingAfterTitlesRule().apply(content) == content

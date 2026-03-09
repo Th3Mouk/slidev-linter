@@ -213,9 +213,9 @@ class CleanTransitionsRule(Rule):
         """Clean up duplicate or misplaced transitions."""
         frontmatter, body = split_frontmatter(content)
 
-        # Remove transitions inserted directly after separators on normal slides.
+        # Remove a malformed case where a transition is directly followed by a title.
         body = re.sub(
-            r"(?m)^---\s*\ntransition:\s*[\w-]+\s*\n(?!layout:)",
+            r"(?m)^---\s*\ntransition:\s*[\w-]+[ \t]*\n(?=#)",
             "---\n\n",
             body,
         )
@@ -467,7 +467,7 @@ def collect_files_to_process(args: argparse.Namespace, slides_dir: str) -> Tuple
         files = sorted(
             {
                 path
-                for path in glob.glob(os.path.join(slides_dir, args.pattern))
+                for path in glob.glob(os.path.join(slides_dir, args.pattern), recursive=True)
                 if os.path.isfile(path) and path.endswith(".md")
             }
         )
@@ -477,7 +477,13 @@ def collect_files_to_process(args: argparse.Namespace, slides_dir: str) -> Tuple
 
     if args.chapter is not None:
         chapter_pattern = f"{args.chapter:02d}-*.md"
-        files = sorted(glob.glob(os.path.join(slides_dir, chapter_pattern)))
+        files = sorted(
+            {
+                path
+                for path in glob.glob(os.path.join(slides_dir, "**", chapter_pattern), recursive=True)
+                if os.path.isfile(path) and path.endswith(".md")
+            }
+        )
         if files:
             return files, None
         return [], f"Error: No files found for chapter: {args.chapter}"
@@ -490,7 +496,12 @@ def collect_files_to_process(args: argparse.Namespace, slides_dir: str) -> Tuple
         start, end = parsed_range
         files: List[str] = []
         for chapter in range(start, end + 1):
-            files.extend(glob.glob(os.path.join(slides_dir, f"{chapter:02d}-*.md")))
+            files.extend(
+                glob.glob(
+                    os.path.join(slides_dir, "**", f"{chapter:02d}-*.md"),
+                    recursive=True,
+                )
+            )
 
         files = sorted({path for path in files if os.path.isfile(path) and path.endswith(".md")})
         if files:
@@ -498,7 +509,13 @@ def collect_files_to_process(args: argparse.Namespace, slides_dir: str) -> Tuple
         return [], f"Error: No files found for range: {args.range}"
 
     if args.all:
-        files = sorted(glob.glob(os.path.join(slides_dir, "[0-9][0-9]-*.md")))
+        files = sorted(
+            {
+                path
+                for path in glob.glob(os.path.join(slides_dir, "**", "[0-9][0-9]-*.md"), recursive=True)
+                if os.path.isfile(path) and path.endswith(".md")
+            }
+        )
         if files:
             return files, None
         return [], "No files found matching the criteria."
@@ -567,8 +584,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         print(rule_error)
         return 2
 
-    base_dir = os.path.dirname(os.path.abspath(__file__))
-    slides_dir = args.slides_dir or os.path.join(base_dir, "slides")
+    slides_dir = args.slides_dir or os.path.join(os.getcwd(), "slides")
 
     files_to_process, file_error = collect_files_to_process(args, slides_dir)
     if file_error:
