@@ -17,6 +17,8 @@ def emit_text_summary(result: RunResult) -> None:
             print(f"ℹ️ No modifications needed for {item.file}")
         elif item.action == "error":
             print(f"❌ Error for {item.file}: {item.error}")
+            if item.failed_rule:
+                print(f"   Failed rule: {item.failed_rule}")
 
     summary_line = (
         f"Summary: {result.files_changed}/{result.files_total} files need changes."
@@ -27,6 +29,11 @@ def emit_text_summary(result: RunResult) -> None:
 
     if result.mode == "check" and result.files_changed > 0:
         print("Next: run `slidev-linter lint all` (or the same selector) to apply fixes.")
+
+    if result.rule_impact is not None:
+        print("\nRule impact:")
+        for rule_name, impacted_files in result.rule_impact.items():
+            print(f"  - {rule_name}: {impacted_files} file(s)")
 
 
 def emit_json_summary(result: RunResult) -> None:
@@ -39,12 +46,15 @@ def emit_json_summary(result: RunResult) -> None:
         "files_unchanged": result.files_unchanged,
         "errors": result.errors,
         "duration_ms": result.duration_ms,
+        "rule_impact": result.rule_impact,
         "per_file": [
             {
                 "file": item.file,
                 "changed": item.changed,
                 "action": item.action,
                 "error": item.error,
+                "failed_rule": item.failed_rule,
+                "changed_rules": item.changed_rules,
             }
             for item in result.per_file
         ],

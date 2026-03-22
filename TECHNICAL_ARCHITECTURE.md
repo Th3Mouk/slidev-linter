@@ -58,12 +58,15 @@ Rules are grouped into predefined sets for common use cases.
 **Location**: `src/slidev_linter/engine.py:79-101`
 
 ```python
-basic_formatting = RuleSet("basic_formatting", "Basic formatting rules...")
-basic_formatting.add_rule(self.rules["remove_bold_from_titles"])
-# ... more rules
+_RULE_FACTORIES = {
+    "remove_bold_from_titles": lambda _transition: RemoveBoldFromTitlesRule(),
+    # ...
+}
 
-advanced_formatting = RuleSet("advanced_formatting", "Advanced formatting...")
-# Includes all basic rules plus additional ones
+_RULE_SET_SPECS = {
+    "basic_formatting": ("Basic formatting rules...", [...]),
+    "advanced_formatting": ("Advanced formatting...", [...]),
+}
 ```
 
 **Available RuleSets**:
@@ -134,8 +137,9 @@ cli.py
 | Module | Purpose | Key Classes/Functions |
 |--------|---------|---------------------|
 | `cli.py` | Argument parsing, command dispatch | `build_cli_parser()`, `main()` |
-| `engine.py` | Core linting orchestration | `SlidevLinter`, `RuleSet`, `RunResult` |
+| `engine.py` | Core linting orchestration | `SlidevLinter`, `RuleSet`, `RunResult`, `RuleExecutionError` |
 | `rules.py` | Rule implementations | `Rule` (ABC), 6 concrete rules |
+| `frontmatter.py` | Metadata/frontmatter parsing utilities | `split_frontmatter()`, `set_metadata_key()` |
 | `selectors.py` | File selection logic | `collect_files_to_process()`, `Selector` |
 | `output.py` | Output formatting | `emit_text_summary()`, `emit_json_summary()` |
 | `constants.py` | Configuration constants | Exit codes, regex patterns |
@@ -164,17 +168,16 @@ class Rule(ABC):
 
 ### 2. Frontmatter Parsing Utility
 
-Many rules need to split content into frontmatter and body.
+Many rules need to split content into frontmatter and mutate metadata keys consistently.
 
-**Pattern**: `src/slidev_linter/rules.py:29-43`
+**Pattern**: `src/slidev_linter/frontmatter.py`
 
 ```python
 def split_frontmatter(content: str) -> tuple[str, str]:
-    """Split a document into top-frontmatter and body."""
-    match = FRONTmatter_RE.match(content)
-    if not match:
-        return "", content
-    return match.group(0), content[match.end():]
+    ...
+
+def set_metadata_key(metadata: str, key: str, value: str) -> str:
+    ...
 ```
 
 ### 3. Token Preservation Pattern
@@ -199,7 +202,20 @@ for i, note in enumerate(presenter_notes):
     body_without_notes = body_without_notes.replace(f"{token_prefix}{i}__", note)
 ```
 
-### 4. Idempotency Guarantee
+### 4. Rule Error Resilience
+
+Rule execution is isolated per rule in `lint_file()` and converted to structured file-level errors.
+
+**Implementation**: `src/slidev_linter/engine.py`
+
+```python
+try:
+    content = rule.apply(content)
+except Exception as exc:
+    return FileResult(action="error", failed_rule=rule.name, ...)
+```
+
+### 5. Idempotency Guarantee
 
 Rules must be idempotent - running twice produces the same result.
 
@@ -210,7 +226,7 @@ if content == original_content:
     return FileResult(file=file_path, changed=False, action="no_changes")
 ```
 
-### 5. Exit Code Contract
+### 6. Exit Code Contract
 
 Stable exit codes for CI scripting.
 
@@ -222,6 +238,8 @@ Stable exit codes for CI scripting.
 | 1 | `EXIT_CHECK_DIRTY` | Check found files needing changes |
 | 2 | `EXIT_USAGE_ERROR` | Usage/validation error |
 | 3 | `EXIT_RUNTIME_ERROR` | Runtime file I/O error |
+
+`check` mode supports `--fail-on-error` to force exit code `3` on runtime errors.
 
 ---
 
@@ -244,22 +262,22 @@ class MyNewRule(Rule):
         return modified_content
 ```
 
-2. Register in `engine.py`:
+2. Register in `engine.py` declarative factories/specs:
 
 ```python
-self.rules["my_new_rule"] = MyNewRule()
-# Add to relevant RuleSets
+_RULE_FACTORIES["my_new_rule"] = lambda _transition: MyNewRule()
+# Then add "my_new_rule" in _RULE_SET_SPECS where needed
 ```
 
 ### Adding a New RuleSet
 
-In `engine.py:_initialize_rules()`:
+In `engine.py:_RULE_SET_SPECS`:
 
 ```python
-custom_set = RuleSet("custom_set", "Custom rule combination")
-custom_set.add_rule(self.rules["rule1"])
-custom_set.add_rule(self.rules["rule2"])
-self.rule_sets["custom_set"] = custom_set
+_RULE_SET_SPECS["custom_set"] = (
+    "Custom rule combination",
+    ["rule1", "rule2"],
+)
 ```
 
 ### Adding a New Selector

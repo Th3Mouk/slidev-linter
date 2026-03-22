@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
 import slidev_linter as sl
@@ -14,6 +16,21 @@ import slidev_linter as sl
 )
 def test_remove_bold_from_titles_rule(content: str, expected: str) -> None:
     assert sl.RemoveBoldFromTitlesRule().apply(content) == expected
+
+
+def test_frontmatter_helpers_split_and_rebuild() -> None:
+    content = "---\ntitle: Demo\n---\n# Intro\n"
+    frontmatter, body = sl.split_frontmatter(content)
+    assert frontmatter == "---\ntitle: Demo\n---\n"
+    assert body == "# Intro\n"
+
+    rebuilt = sl.rebuild_frontmatter("title: Demo\ntransition: slide-left", had_trailing_newline=True)
+    assert rebuilt == "---\ntitle: Demo\ntransition: slide-left\n---\n"
+
+
+def test_is_metadata_line_helper() -> None:
+    assert sl.is_metadata_line("layout: section") is True
+    assert sl.is_metadata_line("# heading") is False
 
 
 @pytest.mark.parametrize(
@@ -252,3 +269,32 @@ def test_each_rule_is_idempotent(rule: sl.Rule) -> None:
     once = rule.apply(content)
     twice = rule.apply(once)
     assert twice == once
+
+
+def test_lint_file_captures_rule_exceptions(tmp_path: Path) -> None:
+    slide_path = tmp_path / "20-demo.md"
+    slide_path.write_text("# Intro\n", encoding="utf-8")
+
+    class FailingRule(sl.Rule):
+        def __init__(self) -> None:
+            super().__init__("failing_rule", "Always fails")
+
+        def apply(self, content: str) -> str:
+            raise ValueError("boom")
+
+    linter = sl.SlidevLinter()
+    result = linter.lint_file(str(slide_path), [FailingRule()], explain=True)
+
+    assert result.action == "error"
+    assert result.changed is False
+    assert result.failed_rule == "failing_rule"
+    assert result.error is not None
+    assert "failing_rule" in result.error
+
+
+def test_rule_set_specs_reference_registered_rules() -> None:
+    linter = sl.SlidevLinter()
+    available_rule_names = set(linter.get_available_rules())
+
+    for _rule_set_name, (_description, rule_names) in linter._RULE_SET_SPECS.items():
+        assert set(rule_names).issubset(available_rule_names)

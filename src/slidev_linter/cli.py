@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 import time
 from pathlib import Path
@@ -70,40 +71,72 @@ def build_cli_parser() -> argparse.ArgumentParser:
             default=OUTPUT_TEXT,
             help="Output format for run summary",
         )
+        selector_parser.add_argument(
+            "--explain",
+            action="store_true",
+            help="Include per-rule impact metrics in run results",
+        )
 
-    def add_shared_run_options(run_parser: argparse.ArgumentParser) -> None:
+    def add_check_only_options(run_parser: argparse.ArgumentParser) -> None:
+        run_parser.add_argument(
+            "--fail-on-error",
+            action="store_true",
+            help="Return runtime error exit code if any file processing error occurs",
+        )
+
+    def add_shared_run_options(
+        run_parser: argparse.ArgumentParser,
+        include_check_only_options: bool = False,
+    ) -> None:
         selectors = run_parser.add_subparsers(dest="selector_kind", required=True)
 
         all_selector = selectors.add_parser("all", help="Process all chapter files")
         add_selector_options(all_selector)
+        if include_check_only_options:
+            add_check_only_options(all_selector)
         all_selector.set_defaults(selector_value="all")
 
         file_selector = selectors.add_parser("file", help="Process one file or one glob pattern")
         file_selector.add_argument("selector_value", type=str, help="Markdown file path or glob")
         add_selector_options(file_selector)
+        if include_check_only_options:
+            add_check_only_options(file_selector)
 
         chapter_selector = selectors.add_parser("chapter", help="Process one chapter number")
         chapter_selector.add_argument("selector_value", type=str, help="Chapter number (e.g. 20)")
         add_selector_options(chapter_selector)
+        if include_check_only_options:
+            add_check_only_options(chapter_selector)
 
         range_selector = selectors.add_parser("range", help="Process a chapter range")
         range_selector.add_argument("selector_value", type=str, help="Range like 20-29")
         add_selector_options(range_selector)
+        if include_check_only_options:
+            add_check_only_options(range_selector)
 
         pattern_selector = selectors.add_parser(
             "pattern", help="Process files matching a recursive glob"
         )
         pattern_selector.add_argument("selector_value", type=str, help="Pattern like '**/*.md'")
         add_selector_options(pattern_selector)
+        if include_check_only_options:
+            add_check_only_options(pattern_selector)
 
     lint_parser = subparsers.add_parser("lint", help="Apply formatting changes")
     add_shared_run_options(lint_parser)
 
     check_parser = subparsers.add_parser("check", help="Check if formatting changes are needed")
-    add_shared_run_options(check_parser)
+    add_shared_run_options(check_parser, include_check_only_options=True)
 
     list_parser = subparsers.add_parser("list", help="List available lint metadata")
     list_parser.add_argument("target", choices=["rules", "rule-sets"], help="What to list")
+    list_parser.add_argument("--verbose", action="store_true", help="Show rule details in output")
+    list_parser.add_argument(
+        "--format",
+        choices=[OUTPUT_TEXT, OUTPUT_JSON],
+        default=OUTPUT_TEXT,
+        help="Output format for listing commands",
+    )
 
     return parser
 
@@ -111,6 +144,7 @@ def build_cli_parser() -> argparse.ArgumentParser:
 def run_lint_or_check(args: argparse.Namespace, mode: str, linter: SlidevLinter) -> int:
     output_format = args.format
     selector = selector_from_args(args)
+    explain = bool(getattr(args, "explain", False))
 
     rule_error = validate_rule_selection(args, linter)
     if rule_error:
@@ -134,14 +168,23 @@ def run_lint_or_check(args: argparse.Namespace, mode: str, linter: SlidevLinter)
     per_file: list[FileResult] = []
     errors: list[str] = []
     changed_count = 0
+    rule_impact = {rule_name: 0 for rule_name in selected_rule_names} if explain else None
 
     for file_path in files_to_process:
-        outcome = linter.lint_file(file_path, selected_rules, check_only=check_only)
+        outcome = linter.lint_file(
+            file_path,
+            selected_rules,
+            check_only=check_only,
+            explain=explain,
+        )
         per_file.append(outcome)
         if outcome.action == "error" and outcome.error:
             errors.append(outcome.error)
         if outcome.changed:
             changed_count += 1
+        if explain and rule_impact is not None and outcome.changed_rules:
+            for rule_name in outcome.changed_rules:
+                rule_impact[rule_name] = rule_impact.get(rule_name, 0) + 1
 
     duration_ms = int((time.perf_counter() - start) * 1000)
     result = RunResult(
@@ -154,6 +197,7 @@ def run_lint_or_check(args: argparse.Namespace, mode: str, linter: SlidevLinter)
         errors=errors,
         duration_ms=duration_ms,
         per_file=per_file,
+        rule_impact=rule_impact,
     )
 
     if output_format == OUTPUT_JSON:
@@ -162,6 +206,9 @@ def run_lint_or_check(args: argparse.Namespace, mode: str, linter: SlidevLinter)
         emit_text_summary(result)
 
     if errors:
+        fail_on_error = bool(getattr(args, "fail_on_error", False))
+        if mode == "check" and not fail_on_error:
+            return EXIT_CHECK_DIRTY
         return EXIT_RUNTIME_ERROR
     if mode == "check" and changed_count > 0:
         return EXIT_CHECK_DIRTY
@@ -169,6 +216,35 @@ def run_lint_or_check(args: argparse.Namespace, mode: str, linter: SlidevLinter)
 
 
 def handle_list(args: argparse.Namespace, linter: SlidevLinter) -> int:
+    output_format = args.format
+    verbose = bool(args.verbose)
+
+    if output_format == OUTPUT_JSON:
+        if args.target == "rules":
+            payload = {
+                "target": "rules",
+                "items": [
+                    {"name": name, "description": linter.rules[name].description}
+                    for name in linter.get_available_rules()
+                ],
+            }
+            print(json.dumps(payload, ensure_ascii=True, sort_keys=True))
+            return EXIT_OK
+
+        payload = {
+            "target": "rule-sets",
+            "items": [
+                {
+                    "name": rule_set_name,
+                    "description": linter.rule_sets[rule_set_name].description,
+                    "rules": [rule.name for rule in linter.rule_sets[rule_set_name].rules],
+                }
+                for rule_set_name in linter.get_available_rule_sets()
+            ],
+        }
+        print(json.dumps(payload, ensure_ascii=True, sort_keys=True))
+        return EXIT_OK
+
     if args.target == "rules":
         print("Available rules:")
         for rule_name in linter.get_available_rules():
@@ -179,9 +255,10 @@ def handle_list(args: argparse.Namespace, linter: SlidevLinter) -> int:
     for rule_set_name in linter.get_available_rule_sets():
         rule_set = linter.rule_sets[rule_set_name]
         print(f"  - {rule_set_name}: {rule_set.description}")
-        print("    Included rules:")
-        for rule in rule_set.rules:
-            print(f"      - {rule.name}: {rule.description}")
+        if verbose:
+            print("    Included rules:")
+            for rule in rule_set.rules:
+                print(f"      - {rule.name}: {rule.description}")
 
     return EXIT_OK
 

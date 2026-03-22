@@ -120,6 +120,11 @@ pattern <glob>
 - `--section-transition <name>`: transition animation for section slides (default: `slide-left`)
   - Available: `slide-left`, `slide-right`, `slide-up`, `slide-down`, `fade`, `zoom`
 - `--format text|json`: output mode (default: `text`)
+- `--explain`: include per-rule impact metrics in run output
+
+### Check-only options (`check`)
+
+- `--fail-on-error`: return runtime exit code (`3`) if file I/O or rule execution errors occur
 
 ### Practical examples
 
@@ -177,12 +182,14 @@ Each `lint` / `check` run emits one JSON object with:
 - `files_unchanged`
 - `errors`
 - `duration_ms`
+- `rule_impact` (when `--explain` is enabled)
 - `per_file` (`{file, changed, action, error}`)
+  - includes `failed_rule` and `changed_rules` when available
 
 ### Exit codes
 
 - `0`: success / clean check
-- `1`: `check` found files needing changes
+- `1`: `check` found files needing changes (or non-fatal processing errors when `--fail-on-error` is not set)
 - `2`: usage/validation error
 - `3`: runtime file I/O error
 

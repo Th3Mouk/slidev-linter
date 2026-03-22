@@ -33,6 +33,23 @@ def test_list_rule_sets_prints_available_rule_sets() -> None:
     assert "advanced_formatting" in output
 
 
+def test_list_rule_sets_verbose_prints_included_rules() -> None:
+    code, output = run_main(["list", "rule-sets", "--verbose"])
+    assert code == 0
+    assert "Included rules:" in output
+    assert "remove_bold_from_titles" in output
+
+
+def test_list_rule_sets_json_output() -> None:
+    code, output = run_main(["list", "rule-sets", "--format", "json"])
+    payload = json.loads(output)
+
+    assert code == 0
+    assert payload["target"] == "rule-sets"
+    assert payload["items"]
+    assert payload["items"][0]["rules"]
+
+
 def test_main_returns_error_without_command() -> None:
     code, output = run_main([])
     assert code == 2
@@ -277,6 +294,61 @@ def test_json_output_contract_for_lint(
     assert payload["mode"] == "lint"
     assert payload["files_changed"] == 1
     assert payload["per_file"][0]["action"] == "modified"
+
+
+def test_explain_includes_rule_impact_in_json(
+    slides_dir: Path, write_slide: Callable[[str, str], Path]
+) -> None:
+    write_slide("20-demo.md", "---\ntitle: Demo\n---\n# **Title**\n")
+    code, output = run_main(
+        [
+            "check",
+            "all",
+            "--slides-dir",
+            str(slides_dir),
+            "--format",
+            "json",
+            "--explain",
+        ]
+    )
+    payload = json.loads(output)
+
+    assert code == 1
+    assert payload["rule_impact"] is not None
+    assert payload["rule_impact"]["remove_bold_from_titles"] == 1
+    assert "remove_bold_from_titles" in (payload["per_file"][0]["changed_rules"] or [])
+
+
+def test_check_runtime_error_respects_fail_on_error_flag(
+    monkeypatch: pytest.MonkeyPatch,
+    slides_dir: Path,
+    write_slide: Callable[[str, str], Path],
+) -> None:
+    write_slide("20-demo.md", "---\ntitle: Demo\n---\n# Intro\n")
+
+    def fake_lint_file(
+        self: sl.SlidevLinter,
+        file_path: str,
+        selected_rules: list[sl.Rule],
+        check_only: bool = False,
+        explain: bool = False,
+    ) -> sl.FileResult:
+        return sl.FileResult(
+            file=file_path,
+            changed=False,
+            action="error",
+            error="boom",
+            failed_rule="remove_bold_from_titles",
+            changed_rules=[] if explain else None,
+        )
+
+    monkeypatch.setattr(sl.SlidevLinter, "lint_file", fake_lint_file)
+
+    code_default, _ = run_main(["check", "all", "--slides-dir", str(slides_dir)])
+    code_strict, _ = run_main(["check", "all", "--slides-dir", str(slides_dir), "--fail-on-error"])
+
+    assert code_default == 1
+    assert code_strict == 3
 
 
 def test_legacy_flags_are_rejected_with_migration_hint() -> None:

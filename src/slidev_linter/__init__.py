@@ -19,7 +19,8 @@ from .constants import (
     OUTPUT_TEXT,
     SECTION_TRANSITION,
 )
-from .engine import FileResult, RuleSet, RunResult, Selector, SlidevLinter
+from .engine import FileResult, RuleExecutionError, RuleSet, RunResult, Selector, SlidevLinter
+from .frontmatter import is_metadata_line, rebuild_frontmatter, split_frontmatter
 from .rules import (
     AddSpacingAfterTitlesRule,
     CleanTransitionsRule,
@@ -28,9 +29,6 @@ from .rules import (
     RemoveBoldFromTitlesRule,
     Rule,
     SectionTransitionRule,
-    is_metadata_line,
-    rebuild_frontmatter,
-    split_frontmatter,
 )
 from .selectors import collect_files_to_process, expand_file_arg, parse_range, selector_from_args
 
@@ -50,6 +48,7 @@ __all__ = [
     "OUTPUT_TEXT",
     "RemoveBoldFromTitlesRule",
     "Rule",
+    "RuleExecutionError",
     "RuleSet",
     "RunResult",
     "SECTION_TRANSITION",

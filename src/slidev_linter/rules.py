@@ -5,9 +5,34 @@ from abc import ABC, abstractmethod
 from typing import Final
 from uuid import uuid4
 
-from .constants import DEFAULT_TRANSITION, FRONTMATTER_RE, SECTION_TRANSITION
+from .constants import DEFAULT_TRANSITION, SECTION_TRANSITION
+from .frontmatter import (
+    find_metadata_block,
+    has_metadata_key,
+    rebuild_frontmatter,
+    set_metadata_key,
+    split_frontmatter,
+)
 
 SPACING_TAG: Final[str] = '<p class="py-2"/>'
+
+FRONTMATTER_CONTENT_RE: Final[re.Pattern[str]] = re.compile(
+    r"^---\s*\n(?P<meta>.*?)\n---\s*\n?$",
+    re.DOTALL,
+)
+LAYOUT_SECTION_RE: Final[re.Pattern[str]] = re.compile(
+    r"^\s*layout\s*:\s*section\s*$",
+    re.MULTILINE,
+)
+SEPARATOR_WITH_TRANSITION_BEFORE_TITLE_RE: Final[re.Pattern[str]] = re.compile(
+    r"(?m)^---\s*\ntransition:\s*[\w-]+[ \t]*\n(?=#)"
+)
+MISSING_BLANK_AFTER_SEPARATOR_RE: Final[re.Pattern[str]] = re.compile(
+    r"(?m)(\n---[ \t]*\n)(?!\n|layout:|transition:)"
+)
+DUPLICATE_SPACING_TAGS_RE: Final[re.Pattern[str]] = re.compile(
+    r"(<p class=\"py-2\"/>\s*\n){2,}"
+)
 
 
 class Rule(ABC):
@@ -24,28 +49,6 @@ class Rule(ABC):
 
     def __str__(self) -> str:
         return f"{self.name}: {self.description}"
-
-
-def split_frontmatter(content: str) -> tuple[str, str]:
-    """Split a document into top-frontmatter and body."""
-    match = FRONTMATTER_RE.match(content)
-    if not match:
-        return "", content
-    return match.group(0), content[match.end() :]
-
-
-def rebuild_frontmatter(meta: str, had_trailing_newline: bool) -> str:
-    """Build a normalized frontmatter block from metadata lines."""
-    rebuilt = f"---\n{meta}\n---"
-    if had_trailing_newline:
-        rebuilt += "\n"
-    return rebuilt
-
-
-def is_metadata_line(line: str) -> bool:
-    """Return True when a line looks like frontmatter metadata."""
-    return bool(re.match(r"^\s*[A-Za-z_][\w-]*\s*:", line))
-
 
 class RemoveBoldFromTitlesRule(Rule):
     """Rule to remove bold formatting from titles."""
@@ -76,22 +79,12 @@ class DefaultTransitionRule(Rule):
         if not frontmatter:
             return content
 
-        frontmatter_match = re.match(r"^---\s*\n(?P<meta>.*?)\n---\s*\n?$", frontmatter, re.DOTALL)
+        frontmatter_match = FRONTMATTER_CONTENT_RE.match(frontmatter)
         if not frontmatter_match:
             return content
 
         metadata = frontmatter_match.group("meta")
-        if not re.search(r"^\s*transition\s*:", metadata, re.MULTILINE):
-            suffix = "" if metadata.endswith("\n") else "\n"
-            new_metadata = f"{metadata}{suffix}transition: {DEFAULT_TRANSITION}"
-        else:
-            new_metadata = re.sub(
-                r"^\s*transition\s*:\s*.*$",
-                f"transition: {DEFAULT_TRANSITION}",
-                metadata,
-                count=1,
-                flags=re.MULTILINE,
-            )
+        new_metadata = set_metadata_key(metadata, "transition", DEFAULT_TRANSITION)
 
         if new_metadata == metadata:
             return content
@@ -123,40 +116,23 @@ class SectionTransitionRule(Rule):
                 index += 1
                 continue
 
-            end = index + 1
-            while end < len(lines) and lines[end].strip() != "---":
-                end += 1
-
-            if end >= len(lines):
+            metadata_block = find_metadata_block(lines, index)
+            if not metadata_block:
                 output.append(current_line)
                 index += 1
                 continue
 
-            metadata_lines = lines[index + 1 : end]
-            meaningful_lines = [line.strip() for line in metadata_lines if line.strip()]
-
-            if not meaningful_lines or not all(is_metadata_line(line) for line in meaningful_lines):
+            end, metadata = metadata_block
+            if not LAYOUT_SECTION_RE.search(metadata):
                 output.append(current_line)
                 index += 1
                 continue
 
-            metadata = "".join(metadata_lines)
-            if not re.search(r"^\s*layout\s*:\s*section\s*$", metadata, re.MULTILINE):
-                output.append(current_line)
-                index += 1
-                continue
-
-            if re.search(r"^\s*transition\s*:", metadata, re.MULTILINE):
-                updated_metadata = re.sub(
-                    r"^\s*transition\s*:\s*.*$",
-                    f"transition: {self.transition}",
-                    metadata,
-                    count=1,
-                    flags=re.MULTILINE,
-                )
+            updated_metadata = set_metadata_key(metadata, "transition", self.transition)
+            if has_metadata_key(metadata, "transition"):
+                updated_metadata = updated_metadata
             else:
-                suffix = "" if metadata.endswith("\n") else "\n"
-                updated_metadata = f"{metadata}{suffix}transition: {self.transition}\n"
+                updated_metadata += "\n"
 
             output.append(current_line)
             output.append(updated_metadata)
@@ -179,13 +155,14 @@ class CleanTransitionsRule(Rule):
         """Clean up duplicate or misplaced transitions."""
         frontmatter, body = split_frontmatter(content)
 
-        body = re.sub(
-            r"(?m)^---\s*\ntransition:\s*[\w-]+[ \t]*\n(?=#)",
-            "---\n\n",
-            body,
-        )
-        body = re.sub(r"(?m)(\n---[ \t]*\n)(?!\n|layout:|transition:)", r"\1\n", body)
-        body = re.sub(r"(<p class=\"py-2\"/>\s*\n){2,}", '<p class="py-2"/>\n', body)
+        if "transition:" in body:
+            body = SEPARATOR_WITH_TRANSITION_BEFORE_TITLE_RE.sub("---\n\n", body)
+
+        if "\n---" in body:
+            body = MISSING_BLANK_AFTER_SEPARATOR_RE.sub(r"\1\n", body)
+
+        if '<p class="py-2"/>' in body:
+            body = DUPLICATE_SPACING_TAGS_RE.sub('<p class="py-2"/>\n', body)
 
         if frontmatter:
             return frontmatter + body.lstrip("\n")
