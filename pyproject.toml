@@ -12,7 +12,7 @@ license = { text = "MIT" }
 authors = [{ name = "Th3Mouk" }]
 dependencies = []
 
-[project.optional-dependencies]
+[dependency-groups]
 dev = [
   "mypy>=1.11.0",
   "pytest>=8.3.0",

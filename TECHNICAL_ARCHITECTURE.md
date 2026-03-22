@@ -307,8 +307,8 @@ Tests verify that applying rules to source fixtures produces expected outputs.
 ### Running Tests
 
 ```bash
-./.venv/bin/python -m pytest
-./.venv/bin/python -m pytest --cov=slidev_linter --cov-report=term-missing
+uv run pytest
+uv run pytest --cov=slidev_linter --cov-report=term-missing
 ```
 
 ---

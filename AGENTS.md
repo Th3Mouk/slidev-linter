@@ -11,30 +11,28 @@
 ### Install Dependencies
 
 ```bash
-python3 -m venv .venv
-./.venv/bin/pip install -U pip
-./.venv/bin/pip install -e ".[dev]"
+uv sync --dev
 ```
 
 ### Run Tests
 
 ```bash
-./.venv/bin/python -m pytest
-./.venv/bin/python -m pytest --cov=slidev_linter --cov-report=term-missing
+uv run pytest
+uv run pytest --cov=slidev_linter --cov-report=term-missing
 ```
 
 ### Linting & Type Checking
 
 ```bash
-./.venv/bin/ruff check .
-./.venv/bin/mypy src tests
+uv run ruff check .
+uv run mypy src tests
 ```
 
 ### Run the CLI
 
 ```bash
-./.venv/bin/slidev-linter list rules
-./.venv/bin/slidev-linter check all --slides-dir ./fixtures
+uv run slidev-linter list rules
+uv run slidev-linter check all --slides-dir ./fixtures
 ```
 
 ---
@@ -95,9 +93,9 @@ Tests verify rule application produces expected outputs.
 ### Required Checks Before Commit
 
 ```bash
-./.venv/bin/ruff check .
-./.venv/bin/mypy src tests
-./.venv/bin/python -m pytest
+uv run ruff check .
+uv run mypy src tests
+uv run pytest
 ```
 
 ---

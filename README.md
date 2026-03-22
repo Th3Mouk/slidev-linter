@@ -44,10 +44,8 @@ slidev-linter list rules
 ### Alternative: local package install
 
 ```bash
-python3 -m venv .venv
-./.venv/bin/pip install -U pip
-./.venv/bin/pip install -e .
-./.venv/bin/slidev-linter list rules
+uv sync
+uv run slidev-linter list rules
 ```
 
 ### Optional: npm scripts integration
@@ -99,7 +97,7 @@ slidev-linter check <selector>
 slidev-linter list rules
 slidev-linter list rule-sets
 # Equivalent module entrypoint:
-python -m slidev_linter lint <selector>
+uv run python -m slidev_linter lint <selector>
 ```
 
 ### Selectors
@@ -218,13 +216,11 @@ Fixture contract in this repository:
 ## 🧪 Developer Quickstart
 
 ```bash
-python3 -m venv .venv
-./.venv/bin/pip install -U pip
-./.venv/bin/pip install -e ".[dev]"
-./.venv/bin/ruff check .
-./.venv/bin/mypy src tests
-./.venv/bin/python -m pytest
-./.venv/bin/python -m pytest --cov=slidev_linter --cov-report=term-missing --cov-report=xml
+uv sync --dev
+uv run ruff check .
+uv run mypy src tests
+uv run pytest
+uv run pytest --cov=slidev_linter --cov-report=term-missing --cov-report=xml
 ```
 
 ## 🔧 Customization
