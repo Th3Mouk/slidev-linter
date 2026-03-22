@@ -1,6 +1,22 @@
+# Python bytecode
 __pycache__/
-*.pyc
+*.py[cod]
+*$py.class
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+*.egg
+*.whl
+pip-wheel-metadata/
+
+# Test / coverage
 .coverage
 coverage.xml
 htmlcov/
 .pytest_cache/
+
+# Type checking / linting
+.ruff_cache/
+.mypy_cache/
