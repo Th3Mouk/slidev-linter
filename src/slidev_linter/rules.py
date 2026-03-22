@@ -101,13 +101,14 @@ class DefaultTransitionRule(Rule):
 
 
 class SectionTransitionRule(Rule):
-    """Rule to enforce 'transition: slide-left' on section slides."""
+    """Rule to enforce a specific transition on section slides."""
 
-    def __init__(self) -> None:
+    def __init__(self, transition: str = SECTION_TRANSITION) -> None:
         super().__init__(
             "section_transition",
-            "Adds 'transition: slide-left' only for slides with layout 'section'",
+            f"Adds 'transition: {transition}' for slides with layout 'section'",
         )
+        self.transition = transition
 
     def apply(self, content: str) -> str:
         """Add or fix transition for metadata blocks with layout: section."""
@@ -148,14 +149,14 @@ class SectionTransitionRule(Rule):
             if re.search(r"^\s*transition\s*:", metadata, re.MULTILINE):
                 updated_metadata = re.sub(
                     r"^\s*transition\s*:\s*.*$",
-                    f"transition: {SECTION_TRANSITION}",
+                    f"transition: {self.transition}",
                     metadata,
                     count=1,
                     flags=re.MULTILINE,
                 )
             else:
                 suffix = "" if metadata.endswith("\n") else "\n"
-                updated_metadata = f"{metadata}{suffix}transition: {SECTION_TRANSITION}\n"
+                updated_metadata = f"{metadata}{suffix}transition: {self.transition}\n"
 
             output.append(current_line)
             output.append(updated_metadata)

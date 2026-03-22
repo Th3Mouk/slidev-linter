@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from .constants import DEFAULT_RULE_SET
+from .constants import DEFAULT_RULE_SET, SECTION_TRANSITION
 from .rules import (
     AddSpacingAfterTitlesRule,
     CleanTransitionsRule,
@@ -63,15 +63,16 @@ class RuleSet:
 class SlidevLinter:
     """Linter for Slidev presentations."""
 
-    def __init__(self) -> None:
+    def __init__(self, section_transition: str = SECTION_TRANSITION) -> None:
         self.rule_sets: dict[str, RuleSet] = {}
         self.rules: dict[str, Rule] = {}
+        self._section_transition = section_transition
         self._initialize_rules()
 
     def _initialize_rules(self) -> None:
         self.rules["remove_bold_from_titles"] = RemoveBoldFromTitlesRule()
         self.rules["default_transition"] = DefaultTransitionRule()
-        self.rules["section_transition"] = SectionTransitionRule()
+        self.rules["section_transition"] = SectionTransitionRule(self._section_transition)
         self.rules["clean_transitions"] = CleanTransitionsRule()
         self.rules["add_spacing_after_titles"] = AddSpacingAfterTitlesRule()
         self.rules["ensure_space_between_title_subtitle"] = EnsureSpaceBetweenTitleAndSubtitleRule()

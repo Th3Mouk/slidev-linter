@@ -6,12 +6,14 @@ import time
 from pathlib import Path
 
 from .constants import (
+    AVAILABLE_TRANSITIONS,
     EXIT_CHECK_DIRTY,
     EXIT_OK,
     EXIT_RUNTIME_ERROR,
     EXIT_USAGE_ERROR,
     OUTPUT_JSON,
     OUTPUT_TEXT,
+    SECTION_TRANSITION,
 )
 from .engine import FileResult, RunResult, SlidevLinter
 from .output import emit_error, emit_json_summary, emit_text_summary
@@ -54,6 +56,13 @@ def build_cli_parser() -> argparse.ArgumentParser:
         selector_parser.add_argument("--rule-set", type=str, help="Rule set to apply")
         selector_parser.add_argument(
             "--rules", type=str, nargs="+", help="Individual rules to apply"
+        )
+        selector_parser.add_argument(
+            "--section-transition",
+            type=str,
+            choices=AVAILABLE_TRANSITIONS,
+            default=SECTION_TRANSITION,
+            help=f"Transition animation for section slides (default: {SECTION_TRANSITION})",
         )
         selector_parser.add_argument(
             "--format",
@@ -215,7 +224,8 @@ def main(argv: list[str] | None = None) -> int:
         parser.print_help()
         return EXIT_USAGE_ERROR
 
-    linter = SlidevLinter()
+    section_transition = getattr(args, "section_transition", SECTION_TRANSITION)
+    linter = SlidevLinter(section_transition=section_transition)
 
     if args.command == "list":
         return handle_list(args, linter)

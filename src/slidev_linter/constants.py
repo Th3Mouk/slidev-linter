@@ -6,6 +6,15 @@ DEFAULT_TRANSITION = "slide-left"
 SECTION_TRANSITION = "slide-left"
 DEFAULT_RULE_SET = "advanced_formatting"
 
+AVAILABLE_TRANSITIONS = [
+    "slide-left",
+    "slide-right",
+    "slide-up",
+    "slide-down",
+    "fade",
+    "zoom",
+]
+
 EXIT_OK = 0
 EXIT_CHECK_DIRTY = 1
 EXIT_USAGE_ERROR = 2

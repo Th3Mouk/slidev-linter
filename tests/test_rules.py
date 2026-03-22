@@ -92,6 +92,14 @@ def test_section_transition_rule_for_section_slides(
         assert expected_not_contains not in result
 
 
+@pytest.mark.parametrize("transition", ["fade", "zoom", "slide-up", "slide-down", "slide-right"])
+def test_section_transition_rule_with_custom_transitions(transition: str) -> None:
+    content = "---\ntitle: Demo\n---\n# Intro\n\n---\nlayout: section\n---\n# Section\n"
+    rule = sl.SectionTransitionRule(transition=transition)
+    result = rule.apply(content)
+    assert f"layout: section\ntransition: {transition}" in result
+
+
 def test_section_transition_ignores_non_section_blocks() -> None:
     content = "---\ntitle: Demo\n---\n# Intro\n\n---\nlayout: image-right\n---\n# Next\n"
     result = sl.SectionTransitionRule().apply(content)

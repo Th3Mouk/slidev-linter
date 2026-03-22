@@ -117,6 +117,8 @@ pattern <glob>
 - `--slides-dir <dir>`: custom slides root (default: `./slides`)
 - `--rule-set <name>`: apply one predefined rule set
 - `--rules <rule...>`: apply explicit rule list
+- `--section-transition <name>`: transition animation for section slides (default: `slide-left`)
+  - Available: `slide-left`, `slide-right`, `slide-up`, `slide-down`, `fade`, `zoom`
 - `--format text|json`: output mode (default: `text`)
 
 ### Practical examples
@@ -146,7 +148,7 @@ slidev-linter lint all --slides-dir ./slides --rules remove_bold_from_titles cle
 ### Transition rules
 
 - `default_transition`: ensures top frontmatter transition is `slide-left`
-- `section_transition`: enforces `transition: slide-left` on `layout: section` slides
+- `section_transition`: enforces transition on `layout: section` slides (configurable via `--section-transition`, default: `slide-left`)
 - `clean_transitions`: removes misplaced/duplicated transition artifacts
 
 ### Spacing rules
